@@ -19,3 +19,39 @@ used [nni](https://github.com/microsoft/nni)
 
 ### How to use
 
+you can use train.sh and this is expected file struct
+
+```
+$> tree -d
+.
+├── data
+|     ├── resize{image_size}
+|     |      ├── category_1
+|     |      |    ├── files....            
+|     |      └── category_2...... 
+|     ├── resize64
+|     |      ├── category_1
+|     |      |    ├── files....            
+|     |      └── category_2...... 
+│     └── ...
+└── git_repo
+      └── ...
+```
+
+#### training 
+
+```   
+python train.py --mode 0 --save_model_path <save_model_path> 
+```
+
+#### AMC pruning
+
+```   
+python train.py --mode 1 --save_model_path <save_model_path> --flops_ratio <flops_ratio>
+```
+
+#### Pruning and fine tunning
+
+```   
+python train.py --mode 2 --save_model_path <save_model_path> --mask_path <best_mask.pth> --model_path <best_model.pth>
+```
