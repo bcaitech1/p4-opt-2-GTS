@@ -4,6 +4,7 @@ from src.utils.torch_utils import *
 from src.utils.train_utils import *
 from src.utils.common import *
 from src.dataloader import *
+from src.network_prune import *
 from src.trainer import *
 from typing import Any, Dict, List, Tuple, Union
 import argparse
@@ -32,8 +33,9 @@ BEST_MODEL_SCORE = 0
 
 DICT_POOLING = {
         224:4, 
-        128:4, 
-        32:3
+        128:4,
+        64:4,
+        32:3,
     }
 
 MAX_NUM_POOLING = 3
@@ -126,7 +128,7 @@ def add_pooling(trial,depth):
     else:
         return None
     
-def search_model(trial: optuna.trial.Trial) -> List[Any]:
+def search_model(trial: optuna.trial.Trial, CLASSES) -> List[Any]:
     """Search model structure from user-specified search space."""
     model = []
     n_pooling = 0 # Modify 1 -> 0
@@ -158,12 +160,11 @@ def search_model(trial: optuna.trial.Trial) -> List[Any]:
     model.append([m1_repeat, m1, m1_args])
     
     # First Pooling Layer(or Pass)
-    '''
-    pool_args = add_pooling(trial, 1)
-    if pool_args is not None:
-        model.append(pool_args)
-        n_pooling+=1
-    '''
+    if MAX_NUM_POOLING>3:
+        pool_args = add_pooling(trial, 1)
+        if pool_args is not None:
+            model.append(pool_args)
+            n_pooling+=1
         
     # Module Layers (depths = max_depth)
     for depth in range(2,MAX_DEPTH+3):
@@ -190,7 +191,7 @@ def search_model(trial: optuna.trial.Trial) -> List[Any]:
     # GAP -> Classifier
     model.append([1, "GlobalAvgPool", []])
     model.append([1, "Flatten", []])
-    model.append([1, "Linear", [10]])
+    model.append([1, "Linear", [CLASSES]])
     
     if n_pooling==MAX_NUM_POOLING:
         return model
@@ -206,7 +207,7 @@ def objective(trial: optuna.trial.Trial, device, args, train_loader, test_loader
     
     model_config = copy.deepcopy(MODEL_CONFIG)
     model_config["input_size"] = [image_size, image_size]
-    model_config["backbone"] = search_model(trial)
+    model_config["backbone"] = search_model(trial,args.CLASSES)
     
     if model_config["backbone"] is None:
         # Stride 조건을 못채운 모델의 경우 Pruned
@@ -234,14 +235,22 @@ def objective(trial: optuna.trial.Trial, device, args, train_loader, test_loader
         
         # optimizer setting
         # Standard : https://github.com/kuangliu/pytorch-cifar
-        if data_type == "Cifar10":
+        if data_type == "CIFAR10":
             loss_fn = nn.CrossEntropyLoss()
             optimizer = optim.SGD(model_instance.model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=5e-4)
             scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
-        # TODO : ImageNet, CustomData
+        elif data_type == "CUSTOM":
+            ############################
+            # TODO Hyperparameter Search
+            ############################
+            loss_fn = nn.CrossEntropyLoss()
+            optimizer = optim.SGD(model_instance.model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=5e-4)
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
+        # TODO : ImageNet, CIFAR100
         
         # Search Model Architecture -> Model Train and Testing -> Best Model save (*.yaml, *.pth)
-        test_score = train_fn(model_instance.model, num_epochs, train_loader, test_loader, loss_fn, optimizer, scheduler, device)
+        test_score = train_fn(model_instance.model, args.METRIC, args.CLASSES, num_epochs, train_loader, test_loader, loss_fn, optimizer, scheduler, device)
+        
         if test_score is None:
             # Architecture drop 
             PRUNED_BACKBONE_SET = get_architecture_set(model_config["backbone"])
@@ -265,12 +274,15 @@ def objective(trial: optuna.trial.Trial, device, args, train_loader, test_loader
 
 def main():    
     parser = argparse.ArgumentParser()
-    parser.add_argument("--LIMIT_MACS", type=int, default=10000000, help="TODO")
+    parser.add_argument("--METRIC", type=str, default="F1", help="TODO") # ACC , F1
+    parser.add_argument("--LIMIT_MACS", type=int, default=100000000, help="TODO")
     parser.add_argument("--lr", type=float, default=1e-2, help="TODO")
     parser.add_argument("--epoch", type=int, default=50, help="TODO")
     parser.add_argument("--image_size", type=int, default=32, help="TODO")
+    parser.add_argument("--batch_size", type=int, default=128, help="TODO")
+    parser.add_argument("--CLASSES", type=int, default=10, help="TODO")
     parser.add_argument("--MAX_DEPTH", type=int, default=5, help="TODO")
-    parser.add_argument("--data_type", type=str, default="Cifar10", help="TODO")
+    parser.add_argument("--data_type", type=str, default="CIFAR10", help="TODO") # CIFAR10, CIFAR100, IMAGENET, CUSTOM
     parser.add_argument("--data_root", type=str, default="../", help="TODO")
     parser.add_argument("--study_name", type=str, default="automl_search", help="TODO")
     parser.add_argument("--seed", type=int, default=17, help="TODO")
@@ -282,9 +294,19 @@ def main():
     
     global MAX_NUM_POOLING, MAX_DEPTH
     MAX_NUM_POOLING = DICT_POOLING[args.image_size]
+    if args.image_size == 32 and args.data_type != "CIFAR10":
+        MAX_NUM_POOLING=4
     MAX_DEPTH = args.MAX_DEPTH
     
-    train_loader, test_loader = get_dataset(data_type=args.data_type, data_root='../')
+    # ADD
+    if MAX_NUM_POOLING > MAX_DEPTH:
+        print("MAX_DEPTH is too low.")
+        return
+    
+    if args.data_type=="CUSTOM":
+        train_loader, test_loader = get_dataset(data_type=args.data_type, data_root='../', image_size=args.image_size, batch_size=args.batch_size)
+    else:
+        train_loader, test_loader = get_dataset(data_type=args.data_type, data_root='../', image_size=args.image_size)
     
     print(f"Start Architecture Search.... (Limit MACs : {args.LIMIT_MACS})")
     # Search Algorithm
