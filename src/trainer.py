@@ -9,7 +9,7 @@ from src.utils.torch_utils import init_params
 # 1. Pruned
 # 2. add Metric F1 Score
 
-def train_fn(model, METRIC, CLASSES, num_epochs, train_data_loader, val_data_loader, loss_fn, optimizer, scheduler, device):
+def train_fn(model, METRIC, CLASSES, trial, num_epochs, train_data_loader, val_data_loader, loss_fn, optimizer, scheduler, pruner, device):
     loss_fn = loss_fn.to(device)
     init_params(model)
     model.to(device)
@@ -43,11 +43,11 @@ def train_fn(model, METRIC, CLASSES, num_epochs, train_data_loader, val_data_loa
         elif METRIC=="F1":
             test_score = test_f1
         print(f"\nEpoch #{epoch+1} train loss : [{train_loss.avg}] test loss : [{test_loss}] test score : [{test_score}]\n")
-        # Pruned Function (epoch)
-        # >>> TODO <<<
-        if epoch==0 and test_score<0.05:
-            return None
-        #########################
+      
+        if pruner is not None:
+            pruner.add_train_info(trial, epoch, test_score)
+            if pruner.train_prune():
+                return None
             
         # Scheduler
         if scheduler is not None:

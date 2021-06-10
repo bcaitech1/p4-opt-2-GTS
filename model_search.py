@@ -30,6 +30,7 @@ MODEL_CONFIG = read_yaml(cfg="configs/model/example.yaml")
 PRUNED_BACKBONE_SET = set()
 BEFORE_PRUNED = False
 BEST_MODEL_SCORE = 0
+PRUNE_TYPE = 0
 
 DICT_POOLING = {
         224:4, 
@@ -198,7 +199,10 @@ def search_model(trial: optuna.trial.Trial, CLASSES) -> List[Any]:
     else:
         return None
 
-def objective(trial: optuna.trial.Trial, device, args, train_loader, test_loader):
+def calc_model_score(score, macs):
+    return (score / macs)
+
+def objective(trial: optuna.trial.Trial, device, args, train_loader, test_loader, pruner = None):
     learning_rate = args.lr
     image_size = args.image_size
     num_epochs = args.epoch
@@ -212,21 +216,17 @@ def objective(trial: optuna.trial.Trial, device, args, train_loader, test_loader
     if model_config["backbone"] is None:
         # Stride 조건을 못채운 모델의 경우 Pruned
         raise TrialPruned()
+    elif pruner.architect_prune(model_config["backbone"]):
+        raise TrialPruned()
     
     model_instance = Model(model_config, verbose=False)
         
     macs = calc_macs(model_instance.model, (3, image_size, image_size))
     
-    global BEST_MODEL_SCORE, BEFORE_PRUNED, PRUNED_BACKBONE_SET
 
+    global BEST_MODEL_SCORE
+        
     if macs<=LIMIT_MACS:
-        if BEFORE_PRUNED:
-            current_backbone_set = get_architecture_set(model_config["backbone"])
-            if similar_architecture_pruned(PRUNED_BACKBONE_SET, current_backbone_set) == True:
-                # Pruned
-                print("Similar pruned.")
-                raise TrialPruned()
-                
         print(f"[Trial : {trial.number}] Found a lightweight Model, Model macs : {macs} <= {LIMIT_MACS}")
         print("------ Model Architecture ------")
         print(model_config["backbone"])
@@ -247,19 +247,16 @@ def objective(trial: optuna.trial.Trial, device, args, train_loader, test_loader
             optimizer = optim.SGD(model_instance.model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=5e-4)
             scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
         # TODO : ImageNet, CIFAR100
-        
+        pruner.init_train()
         # Search Model Architecture -> Model Train and Testing -> Best Model save (*.yaml, *.pth)
-        test_score = train_fn(model_instance.model, args.METRIC, args.CLASSES, num_epochs, train_loader, test_loader, loss_fn, optimizer, scheduler, device)
+        test_score = train_fn(model_instance.model, args.METRIC, args.CLASSES, trial, num_epochs, train_loader, test_loader, loss_fn, optimizer, scheduler, pruner, device)
         
         if test_score is None:
-            # Architecture drop 
-            PRUNED_BACKBONE_SET = get_architecture_set(model_config["backbone"])
+            if PRUNE_TYPE != 1:
+                pruner.add_pruned_backbone(model_config["backbone"])
             print("Pruned.")
-            BEFORE_PRUNED = True
             raise TrialPruned()
         else:
-            BEFORE_PRUNED = False
-            # Architecture save to wandb
             if BEST_MODEL_SCORE < test_score :
                 BEST_MODEL_SCORE = test_score
                 model_config["backbone"] = cl_backbone = CommentedSeq(model_config["backbone"])
@@ -270,7 +267,11 @@ def objective(trial: optuna.trial.Trial, device, args, train_loader, test_loader
                     yaml.dump(model_config, f, Dumper=yaml.RoundTripDumper)
     else:
         raise TrialPruned()
-    return test_score, macs
+    
+    if PRUNE_TYPE == 1:
+        return calc_model_score(test_score, macs)
+    else:
+        return test_score, macs
 
 def main():    
     parser = argparse.ArgumentParser()
@@ -287,12 +288,14 @@ def main():
     parser.add_argument("--study_name", type=str, default="automl_search", help="TODO")
     parser.add_argument("--seed", type=int, default=17, help="TODO")
     parser.add_argument("--trial", type=int, default=10000, help="TODO")
-    
+    parser.add_argument("--prune_type", type=int , default=0, help="0. None \n1. optuna inner prunner \n2. custom prunner ")
     args = parser.parse_args()
-    
+
     seed_everything(args.seed)
-    
-    global MAX_NUM_POOLING, MAX_DEPTH
+    global MAX_NUM_POOLING, MAX_DEPTH, PRUNE_TYPE
+
+    PRUNE_TYPE = args.prune_type
+
     MAX_NUM_POOLING = DICT_POOLING[args.image_size]
     if args.image_size == 32 and args.data_type != "CIFAR10":
         MAX_NUM_POOLING=4
@@ -310,18 +313,27 @@ def main():
     
     print(f"Start Architecture Search.... (Limit MACs : {args.LIMIT_MACS})")
     # Search Algorithm
-    # TODO Sampler
-    sampler = optuna.samplers.MOTPESampler(n_startup_trials=11, seed=args.seed)
+    if PRUNE_TYPE == 1:
+        sampler = optuna.samplers.TPESampler(n_startup_trials=11, seed=args.seed)
+        directions = ['maximize']
+        pr = optuna.pruners.HyperbandPruner()
+    else:
+        sampler = optuna.samplers.MOTPESampler(n_startup_trials=11, seed=args.seed)
+        directions = ['maximize', 'minimize']
+        pr=None
     rdb_storage = None
 
     study = optuna.create_study(
-        directions=["maximize", "minimize"],
+        directions=directions,
         storage=rdb_storage,
         study_name=args.study_name,
         sampler=sampler,
+        pruner=pr,
         load_if_exists=True
     )
-    study.optimize(lambda trial: objective(trial, device, args, train_loader, test_loader), n_trials=args.trial)
+
+    pruner = Pruner(PRUNE_TYPE, 2, args.epoch)
+    study.optimize(lambda trial: objective(trial, device, args, train_loader, test_loader, pruner), n_trials=args.trial)
 
     pruned_trials = [
         t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED
