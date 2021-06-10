@@ -2,9 +2,11 @@ import torchvision
 import torchvision.transforms as transforms
 import torch
 from torch.utils.data import DataLoader, Dataset
+from src.augmentation.custom import get_train_transform, get_valid_transform
+from src.custom_dataset import CustomDataset
 
-def get_dataset(data_type="Cifar10", data_root=None):
-    if data_type=="Cifar10":
+def get_dataset(data_type="CIFAR10", data_root=None, image_size=224, batch_size=128):
+    if data_type=="CIFAR10":
         # Cifar10 Standard : https://github.com/kuangliu/pytorch-cifar
         transform_train = transforms.Compose([
             transforms.RandomCrop(32, padding=4),
@@ -21,7 +23,12 @@ def get_dataset(data_type="Cifar10", data_root=None):
 
         test_dataset = torchvision.datasets.CIFAR10(root=data_root+'/input', train=False, download=True, transform=transform_test)
         test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False, num_workers=0)
-    
+    elif data_type=="CUSTOM":
+        train_dataset = CustomDataset(data_dir=data_root+'/transforms_data/resize64/train', transforms=get_train_transform(data_type, image_size))
+        train_loader=DataLoader(train_dataset,batch_size=batch_size,shuffle=True,num_workers=0)
+        
+        test_dataset = CustomDataset(data_dir=data_root+'/transforms_data/resize64/val', transforms=get_valid_transform(data_type, image_size))
+        test_loader=DataLoader(test_dataset,batch_size=batch_size,shuffle=False,num_workers=0)
     return train_loader, test_loader
     
     

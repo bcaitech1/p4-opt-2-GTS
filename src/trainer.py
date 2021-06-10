@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from sklearn.metrics import accuracy_score
+from sklearn.metrics import f1_score
 from src.utils.train_utils import AverageMeter
 from src.utils.torch_utils import init_params
 
@@ -8,7 +9,7 @@ from src.utils.torch_utils import init_params
 # 1. Pruned
 # 2. add Metric F1 Score
 
-def train_fn(model, num_epochs, train_data_loader, val_data_loader, loss_fn, optimizer, scheduler, device):
+def train_fn(model, METRIC, CLASSES, num_epochs, train_data_loader, val_data_loader, loss_fn, optimizer, scheduler, device):
     loss_fn = loss_fn.to(device)
     init_params(model)
     model.to(device)
@@ -16,7 +17,7 @@ def train_fn(model, num_epochs, train_data_loader, val_data_loader, loss_fn, opt
     model.train()
     train_loss = AverageMeter()
     # best_score
-    best_accuracy = 0
+    best_score = 0
     for epoch in range(num_epochs):
         model.train()
         for images, labels in train_data_loader:
@@ -36,25 +37,31 @@ def train_fn(model, num_epochs, train_data_loader, val_data_loader, loss_fn, opt
             scaler.step(optimizer)
             scaler.update()
         
-        test_accuracy = test_fn(val_data_loader,model,device)
-        print(f"\nEpoch #{epoch+1} train loss : [{train_loss.avg}] test accuracy : [{test_accuracy}]\n")
+        test_accuracy, test_f1, test_loss = test_fn(val_data_loader, model, CLASSES, device)
+        if METRIC=="ACC":
+            test_score = test_accuracy
+        elif METRIC=="F1":
+            test_score = test_f1
+        print(f"\nEpoch #{epoch+1} train loss : [{train_loss.avg}] test loss : [{test_loss}] test score : [{test_score}]\n")
         # Pruned Function (epoch)
         # >>> TODO <<<
-        if epoch==0 and test_accuracy<0.45:
+        if epoch==0 and test_score<0.05:
             return None
         #########################
             
         # Scheduler
         if scheduler is not None:
             scheduler.step()
-        if best_accuracy < test_accuracy:
-            best_accuracy = test_accuracy
+        if best_score < test_score:
+            best_score = test_score
 
-    return best_accuracy
+    return best_score
 
-def test_fn(val_data_loader, model, device):
+def test_fn(val_data_loader, model, CLASSES, device):
+    label_list = [i for i in range(CLASSES)]
     preds, gt = [], []
     model.eval()
+    test_loss = AverageMeter()
     loss_fn = nn.CrossEntropyLoss().to(device)
     with torch.no_grad():
         for images, labels in val_data_loader:
@@ -69,6 +76,10 @@ def test_fn(val_data_loader, model, device):
             
             preds += pred.to("cpu").tolist()
             gt += labels.to("cpu").tolist()
+            
+            test_loss.update(losses.detach().item(), current_batch_size)
+            
     test_accuracy = accuracy_score(gt, preds)
+    test_f1 = f1_score(y_true=gt, y_pred=preds, labels=label_list, average='macro', zero_division=0)
     # validation loss
-    return test_accuracy
+    return test_accuracy, test_f1, test_loss.avg
