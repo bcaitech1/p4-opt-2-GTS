@@ -31,15 +31,29 @@ PRUNED_BACKBONE_SET = set()
 BEFORE_PRUNED = False
 BEST_MODEL_SCORE = 0
 
-DICT_POOLING = {
-        224:4, 
-        128:4,
-        64:4,
-        32:3,
-    }
-
 MAX_NUM_POOLING = 3
 MAX_DEPTH = 6
+
+# Add Hyperparameters Search
+def search_hyperparam(trial: optuna.trial.Trial) -> Dict[str, Any]:
+    """Search hyperparam from user-specified search space."""
+    
+    # LR, EPOCHS, n_select(AUTO Augmentation), LOSS_FN, Optim, scheduler
+    
+    lr = trial.suggest_categorical("lr", [0.1, 0.5, 0.01, 0.05, 0.001, 0.005])
+    epochs = trial.suggest_int("epochs", low=50, high=100, step=25)
+    n_select = trial.suggest_int("n_select", low=0, high=6, step=2)
+    loss_fn = trial.suggest_categorical("loss_fn", ["ce", "smooth", "focal", "f1"])
+    optimizer = trial.suggest_categorical("optimizer", ["sgd", "adam", "adamw"])
+    scheduler = trial.suggest_categorical("scheduler", ["reduce", "cosine", "None"])
+    return {
+        "lr": lr,
+        "epochs" : epochs,
+        "n_select": n_select,
+        "loss_fn": loss_fn,
+        "optimizer": optimizer,
+        "scheduler": scheduler,
+    }
 
 def add_module(trial, depth, n_pooling):
     m_name = 'm'+str(depth)
@@ -199,12 +213,11 @@ def search_model(trial: optuna.trial.Trial, CLASSES) -> List[Any]:
         return None
 
 def objective(trial: optuna.trial.Trial, device, args, train_loader, test_loader):
-    learning_rate = args.lr
     image_size = args.image_size
-    num_epochs = args.epoch
     LIMIT_MACS = args.LIMIT_MACS
     data_type = args.data_type
     
+    # Model Search
     model_config = copy.deepcopy(MODEL_CONFIG)
     model_config["input_size"] = [image_size, image_size]
     model_config["backbone"] = search_model(trial,args.CLASSES)
@@ -235,21 +248,43 @@ def objective(trial: optuna.trial.Trial, device, args, train_loader, test_loader
         
         # optimizer setting
         # Standard : https://github.com/kuangliu/pytorch-cifar
+        # TODO : ImageNet, CIFAR100
         if data_type == "CIFAR10":
+            num_epochs = 200
             loss_fn = nn.CrossEntropyLoss()
-            optimizer = optim.SGD(model_instance.model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=5e-4)
+            optimizer = optim.SGD(model_instance.model.parameters(), lr=1e-2, momentum=0.9, weight_decay=5e-4)
             scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
         elif data_type == "CUSTOM":
-            ############################
-            # TODO Hyperparameter Search
-            ############################
-            loss_fn = nn.CrossEntropyLoss()
-            optimizer = optim.SGD(model_instance.model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=5e-4)
-            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
-        # TODO : ImageNet, CIFAR100
-        
+            # Hyper parameter Search
+            hyperparams = search_hyperparam(trial)
+            print(hyperparams)
+            num_epochs = hyperparams["epochs"]
+            
+            if hyperparams["loss_fn"] == "ce": 
+                loss_fn = nn.CrossEntropyLoss()
+            elif hyperparams["loss_fn"] == "smooth":
+                loss_fn = SmoothLoss(classes=args.CLASSES, device=device)
+            elif hyperparams["loss_fn"] == "focal":
+                loss_fn = FocalLoss()
+            elif hyperparams["loss_fn"] == "f1":
+                loss_fn = F1Loss(classes=args.CLASSES)
+            
+            if hyperparams["optimizer"] == "sgd":
+                optimizer = optim.SGD(model_instance.model.parameters(), lr=hyperparams["lr"], momentum=0.9, weight_decay=5e-4)
+            elif hyperparams["optimizer"] == "adam":
+                optimizer = optim.Adam(model_instance.model.parameters(), lr=hyperparams["lr"], weight_decay=5e-4)
+            elif hyperparams["optimizer"] == "adamw":
+                optimizer = optim.AdamW(model_instance.model.parameters(), lr=hyperparams["lr"], weight_decay=5e-4)
+            
+            if hyperparams["scheduler"] == "cosine":
+                scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
+            elif hyperparams["scheduler"] == "reduce":
+                scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=3, threshold_mode='abs',min_lr=1e-6)
+            elif hyperparams["scheduler"] == "None":
+                scheduler = None
+                
         # Search Model Architecture -> Model Train and Testing -> Best Model save (*.yaml, *.pth)
-        test_score = train_fn(model_instance.model, args.METRIC, args.CLASSES, num_epochs, train_loader, test_loader, loss_fn, optimizer, scheduler, device)
+        test_score = train_fn(model_instance.model, args.METRIC, args.CLASSES, num_epochs, train_loader, test_loader, loss_fn, optimizer, scheduler, hyperparams["scheduler"], device)
         
         if test_score is None:
             # Architecture drop 
@@ -276,8 +311,6 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--METRIC", type=str, default="F1", help="TODO") # ACC , F1
     parser.add_argument("--LIMIT_MACS", type=int, default=100000000, help="TODO")
-    parser.add_argument("--lr", type=float, default=1e-2, help="TODO")
-    parser.add_argument("--epoch", type=int, default=50, help="TODO")
     parser.add_argument("--image_size", type=int, default=32, help="TODO")
     parser.add_argument("--batch_size", type=int, default=128, help="TODO")
     parser.add_argument("--CLASSES", type=int, default=10, help="TODO")
@@ -293,9 +326,12 @@ def main():
     seed_everything(args.seed)
     
     global MAX_NUM_POOLING, MAX_DEPTH
-    MAX_NUM_POOLING = DICT_POOLING[args.image_size]
-    if args.image_size == 32 and args.data_type != "CIFAR10":
-        MAX_NUM_POOLING=4
+    
+    if args.image_size==32 and args.data_type=="CIFAR10":
+        MAX_NUM_POOLING = 3
+    else:
+        MAX_NUM_POOLING = 4
+        
     MAX_DEPTH = args.MAX_DEPTH
     
     # ADD
