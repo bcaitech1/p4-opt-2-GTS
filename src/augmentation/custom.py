@@ -10,7 +10,12 @@ NORMALIZE_INFO = {
 
 # Add your Augmentation list
 def get_train_transform(data_type="CUSTOM", image_size=224):
-    return A.Compose([
+    return A.Compose([     
+        A.Cutout(num_holes=8, max_h_size=4, max_w_size=4, fill_value=0, always_apply=False, p=0.4),
+        A.GaussNoise(var_limit=(5.0, 30.0),p=0.5),
+        A.HorizontalFlip(p=0.5),
+        A.RandomRotate90(p=0.3),
+        A.VerticalFlip(p=0.4),
         A.Resize(image_size,image_size),
         A.Normalize(mean=NORMALIZE_INFO[data_type]["MEAN"], std=NORMALIZE_INFO[data_type]["STD"], max_pixel_value=255.0, always_apply=False, p=1.0),
         ToTensorV2(p=1.0)

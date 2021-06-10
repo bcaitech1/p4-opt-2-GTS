@@ -24,10 +24,11 @@ def get_dataset(data_type="CIFAR10", data_root=None, image_size=224, batch_size=
         test_dataset = torchvision.datasets.CIFAR10(root=data_root+'/input', train=False, download=True, transform=transform_test)
         test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False, num_workers=0)
     elif data_type=="CUSTOM":
-        train_dataset = CustomDataset(data_dir=data_root+'/transforms_data/resize64/train', transforms=get_train_transform(data_type, image_size))
+        # 배포 시 경로 재설정
+        train_dataset = CustomDataset(data_dir=data_root+'/transforms_data/resize128/train', transforms=get_train_transform(data_type, image_size))
         train_loader=DataLoader(train_dataset,batch_size=batch_size,shuffle=True,num_workers=0)
         
-        test_dataset = CustomDataset(data_dir=data_root+'/transforms_data/resize64/val', transforms=get_valid_transform(data_type, image_size))
+        test_dataset = CustomDataset(data_dir=data_root+'/transforms_data/resize128/val', transforms=get_valid_transform(data_type, image_size))
         test_loader=DataLoader(test_dataset,batch_size=batch_size,shuffle=False,num_workers=0)
     return train_loader, test_loader
     

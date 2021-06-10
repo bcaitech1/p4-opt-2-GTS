@@ -51,7 +51,11 @@ def train_fn(model, METRIC, CLASSES, trial, num_epochs, train_data_loader, val_d
             
         # Scheduler
         if scheduler is not None:
-            scheduler.step()
+            if scheduler_name == "cosine":
+                scheduler.step()
+            elif scheduler_name == "reduce":
+                scheduler.step(test_score)
+                
         if best_score < test_score:
             best_score = test_score
 
