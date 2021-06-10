@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.autograd import Variable
 
 
 class CustomCriterion:
@@ -71,38 +72,6 @@ class F1Loss(nn.Module):
         f1 = f1.clamp(min=self.epsilon, max=1 - self.epsilon)
         return 1 - f1.mean()
 
-# Custom CE+F1 Loss
-class CeF1Loss(nn.Module):
-    def __init__(self, weight=None, classes=9, epsilon=1e-7):
-        super().__init__()
-        self.classes = classes
-        self.epsilon = epsilon
-    
-    def forward(self, y_pred, y_true):
-        assert y_pred.ndim == 2
-        assert y_true.ndim == 1
-        
-        ce_loss =  nn.functional.cross_entropy(y_pred, y_true)
-        
-        y_true = F.one_hot(y_true, self.classes).to(torch.float32)
-        y_pred = F.softmax(y_pred, dim=1)
-
-        tp = (y_true * y_pred).sum(dim=0).to(torch.float32)
-        tn = ((1 - y_true) * (1 - y_pred)).sum(dim=0).to(torch.float32)
-        fp = ((1 - y_true) * y_pred).sum(dim=0).to(torch.float32)
-        fn = (y_true * (1 - y_pred)).sum(dim=0).to(torch.float32)
-
-        precision = tp / (tp + fp + self.epsilon)
-        recall = tp / (tp + fn + self.epsilon)
-
-        f1 = 2 * (precision * recall) / (precision + recall + self.epsilon)
-        f1 = f1.clamp(min=self.epsilon, max=1 - self.epsilon)
-        
-        f1_loss = 1 - f1.mean()
-        
-        return f1_loss + ce_loss
-    
-
 # Focal Loss
 class FocalLoss(nn.Module):
     def __init__(self, gamma=2, alpha=None, size_average=True):
@@ -136,13 +105,20 @@ class FocalLoss(nn.Module):
         else: return loss.sum()
         
 
-def loss_fn(outputs, targets):
-    if len(targets.shape) == 1:
-        return F.cross_entropy(outputs, targets)
-    else:
-        return torch.mean(torch.sum(-targets * F.log_softmax(outputs, dim=1), dim=1))
-
-def label_smooth_loss_fn(outputs, targets, epsilon=0.1):
-    onehot = F.one_hot(targets, 9).float().to(device)
-    targets = (1 - epsilon) * onehot + torch.ones(onehot.shape).to(device) * epsilon / 9
-    return loss_fn(outputs, targets)
+class SmoothLoss(nn.Module):
+    def __init__(self, epsilon=0.1, classes=9, device='cpu'):
+        super(SmoothLoss, self).__init__()
+        self.epsilon = epsilon
+        self.classes = classes
+        self.device = device
+    
+    def loss_fn(self, outputs, targets):
+        if len(targets.shape) == 1:
+            return F.cross_entropy(outputs, targets)
+        else:
+            return torch.mean(torch.sum(-targets * F.log_softmax(outputs, dim=1), dim=1))
+        
+    def forward(self, output, target):
+        onehot = F.one_hot(target, self.classes).float().to(self.device)
+        target = (1 - self.epsilon) * onehot + torch.ones(onehot.shape).to(self.device) * self.epsilon / self.classes
+        return self.loss_fn(output, target)
