@@ -369,7 +369,7 @@ def main():
         load_if_exists=True
     )
 
-    pruner = Pruner(PRUNE_TYPE, 2, args.epoch)
+    pruner = Pruner(PRUNE_TYPE, 2)
     study.optimize(lambda trial: objective(trial, device, args, train_loader, test_loader, pruner), n_trials=args.trial)
 
     pruned_trials = [

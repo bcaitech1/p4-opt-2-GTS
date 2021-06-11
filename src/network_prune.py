@@ -6,13 +6,12 @@ class Pruner():
     best_score = 0
     temp_train_info = []
     best_train_info = []
-    def __init__(self, prune_type, endure_rate, train_epoch, ):
+    def __init__(self, prune_type, endure_rate):
         self.prune_type = prune_type
         self.temp_best = 0
         self.best_score = 0
         self.trial = None
         self.endure_rate = endure_rate
-        self.train_epoch = train_epoch
         self.endure_count = 0
         self.pruned_architecture = set()
 
@@ -31,7 +30,7 @@ class Pruner():
             self.temp_train_info.append(test_score)
             self.temp_best = max(self.temp_best, test_score)
 
-            if (epoch + 1) == self.train_epoch:
+            if (epoch + 1) >= len(self.best_train_info):
                 if self.temp_best > self.best_score:
                     self.best_score = self.temp_best
                     self.best_train_info = self.temp_train_info
