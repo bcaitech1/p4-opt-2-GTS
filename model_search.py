@@ -289,9 +289,6 @@ def objective(trial: optuna.trial.Trial, device, args, train_loader, test_loader
                 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=3, threshold_mode='abs',min_lr=1e-6)
             elif hyperparams["scheduler"] == "None":
                 scheduler = None
-        elif data_type == "CIFAR100":
-            # TODO
-            pass
         elif data_type == "IMAGENET":
             # TODO
             pass
