@@ -1,8 +1,0 @@
-input_channel: 3
-depth_multiple: 1.0
-width_multiple: 1.0
-backbone: [[1, DWConv, [16, 3, 2, null, ReLU]], [1, MaxPool, [3, 2, 1]], [1, GhostBottleneck,
-    [3, 1.0, 32, 1, 2]], [4, InvertedResidualv2, [48, 1, 1]], [1, ECAInvertedResidualv2,
-    [112, 2, 2]], [1, ECABottleneck, [160]], [1, Conv, [768, 1, 1]], [1, GlobalAvgPool,
-    []], [1, Flatten, []], [1, Linear, [9]]]
-input_size: [32, 32]
