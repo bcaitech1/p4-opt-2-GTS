@@ -250,6 +250,13 @@ def objective(trial: optuna.trial.Trial, device, args, train_loader, test_loader
         # Standard : https://github.com/kuangliu/pytorch-cifar
         # TODO : ImageNet, CIFAR100
         if data_type == "CIFAR10":
+            args.CLASSES = 10
+            num_epochs = 200
+            loss_fn = nn.CrossEntropyLoss()
+            optimizer = optim.SGD(model_instance.model.parameters(), lr=1e-2, momentum=0.9, weight_decay=5e-4)
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
+        elif data_type == "CIFAR100":
+            args.CLASSES = 100
             num_epochs = 200
             loss_fn = nn.CrossEntropyLoss()
             optimizer = optim.SGD(model_instance.model.parameters(), lr=1e-2, momentum=0.9, weight_decay=5e-4)
@@ -282,6 +289,12 @@ def objective(trial: optuna.trial.Trial, device, args, train_loader, test_loader
                 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=3, threshold_mode='abs',min_lr=1e-6)
             elif hyperparams["scheduler"] == "None":
                 scheduler = None
+        elif data_type == "CIFAR100":
+            # TODO
+            pass
+        elif data_type == "IMAGENET":
+            # TODO
+            pass
                 
         # Search Model Architecture -> Model Train and Testing -> Best Model save (*.yaml, *.pth)
         test_score = train_fn(model_instance.model, args.METRIC, args.CLASSES, num_epochs, train_loader, test_loader, loss_fn, optimizer, scheduler, hyperparams["scheduler"], device)
