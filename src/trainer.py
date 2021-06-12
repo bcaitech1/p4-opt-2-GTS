@@ -9,7 +9,7 @@ from src.utils.torch_utils import init_params
 # 1. Pruned
 # 2. add Metric F1 Score
 
-def train_fn(model, METRIC, CLASSES, trial, num_epochs, train_data_loader, val_data_loader, loss_fn, optimizer, scheduler, pruner, device):
+def train_fn(model, METRIC, CLASSES, trial, num_epochs, train_data_loader, val_data_loader, loss_fn, optimizer, scheduler, scheduler_name, pruner, device):
     loss_fn = loss_fn.to(device)
     init_params(model)
     model.to(device)
