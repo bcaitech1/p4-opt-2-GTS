@@ -217,7 +217,6 @@ def calc_model_score(score, macs):
     return (score / macs)
 
 def objective(trial: optuna.trial.Trial, device, args, train_loader, test_loader, pruner = None):
-    learning_rate = args.lr
     image_size = args.image_size
     LIMIT_MACS = args.LIMIT_MACS
     data_type = args.data_type
@@ -294,7 +293,18 @@ def objective(trial: optuna.trial.Trial, device, args, train_loader, test_loader
         pruner.init_train()        
 
         # Search Model Architecture -> Model Train and Testing -> Best Model save (*.yaml, *.pth)
-        test_score = train_fn(model_instance.model, args.METRIC, args.CLASSES, num_epochs, train_loader, test_loader, loss_fn, optimizer, scheduler, hyperparams["scheduler"], device)
+        test_score = train_fn(model_instance.model, 
+                              args.METRIC, 
+                              args.CLASSES, 
+                              trial, 
+                              num_epochs, 
+                              train_loader, 
+                              test_loader, 
+                              loss_fn, 
+                              optimizer, 
+                              scheduler, 
+                              hyperparams["scheduler"], 
+                              pruner, device)
         
         if test_score is None:
             if PRUNE_TYPE != 1:
