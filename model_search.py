@@ -1,3 +1,4 @@
+from torchvision import transforms
 from src.model import Model
 from src.loss import *
 from src.utils.torch_utils import *
@@ -221,7 +222,7 @@ def objective(trial: optuna.trial.Trial, device, args, train_loader, test_loader
     image_size = args.image_size
     LIMIT_MACS = args.LIMIT_MACS
     data_type = args.data_type
-    aug = get_augmentation(trial)
+    
     # Model Search
     model_config = copy.deepcopy(MODEL_CONFIG)
     model_config["input_size"] = [image_size, image_size]
@@ -250,6 +251,7 @@ def objective(trial: optuna.trial.Trial, device, args, train_loader, test_loader
         # optimizer setting
         # Standard : https://github.com/kuangliu/pytorch-cifar
         # TODO : ImageNet, CIFAR100
+        hyperparams = {}
         if data_type == "CIFAR10":
             args.CLASSES = 10
             num_epochs = 200
@@ -265,9 +267,12 @@ def objective(trial: optuna.trial.Trial, device, args, train_loader, test_loader
         elif data_type == "CUSTOM":
             # Hyper parameter Search
             hyperparams = search_hyperparam(trial)
-            print(hyperparams)
             num_epochs = hyperparams["epochs"]
-            
+
+            aug_list = get_augmentation(trial)
+
+            train_loader, test_loader = get_dataset(data_type=args.data_type, data_root=args.data_root, image_size=args.image_size, batch_size=args.batch_size, transforms=aug_list)
+
             if hyperparams["loss_fn"] == "ce": 
                 loss_fn = nn.CrossEntropyLoss()
             elif hyperparams["loss_fn"] == "smooth":
@@ -306,7 +311,6 @@ def objective(trial: optuna.trial.Trial, device, args, train_loader, test_loader
                               scheduler, 
                               hyperparams["scheduler"], 
                               pruner, device)
-
         
         if test_score is None:
             if PRUNE_TYPE != 1:
@@ -338,8 +342,8 @@ def main():
     parser.add_argument("--batch_size", type=int, default=128, help="TODO")
     parser.add_argument("--CLASSES", type=int, default=10, help="TODO")
     parser.add_argument("--MAX_DEPTH", type=int, default=5, help="TODO")
-    parser.add_argument("--data_type", type=str, default="CIFAR10", help="TODO") # CIFAR10, CIFAR100, IMAGENET, CUSTOM
-    parser.add_argument("--data_root", type=str, default="../", help="TODO")
+    parser.add_argument("--data_type", type=str, default="CUSTOM", help="TODO") # CIFAR10, CIFAR100, IMAGENET, CUSTOM
+    parser.add_argument("--data_root", type=str, default="/opt/ml/input/data/", help="TODO")
     parser.add_argument("--study_name", type=str, default="automl_search", help="TODO")
     parser.add_argument("--seed", type=int, default=17, help="TODO")
     parser.add_argument("--trial", type=int, default=10000, help="TODO")
@@ -364,9 +368,9 @@ def main():
         return
     
     if args.data_type=="CUSTOM":
-        train_loader, test_loader = get_dataset(data_type=args.data_type, data_root='../', image_size=args.image_size, batch_size=args.batch_size)
+        train_loader, test_loader = get_dataset(data_type=args.data_type, data_root=args.data_root, image_size=args.image_size, batch_size=args.batch_size)
     else:
-        train_loader, test_loader = get_dataset(data_type=args.data_type, data_root='../', image_size=args.image_size)
+        train_loader, test_loader = get_dataset(data_type=args.data_type, data_root=args.data_root, image_size=args.image_size)
     
     print(f"Start Architecture Search.... (Limit MACs : {args.LIMIT_MACS})")
     # Search Algorithm
