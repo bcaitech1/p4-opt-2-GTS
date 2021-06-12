@@ -6,6 +6,7 @@ from src.utils.common import *
 from src.dataloader import *
 from src.network_prune import *
 from src.trainer import *
+from src.augmentation.auto_augmentation import *
 from typing import Any, Dict, List, Tuple, Union
 import argparse
 import copy
@@ -217,11 +218,10 @@ def calc_model_score(score, macs):
     return (score / macs)
 
 def objective(trial: optuna.trial.Trial, device, args, train_loader, test_loader, pruner = None):
-    learning_rate = args.lr
     image_size = args.image_size
     LIMIT_MACS = args.LIMIT_MACS
     data_type = args.data_type
-    
+    aug = get_augmentation(trial)
     # Model Search
     model_config = copy.deepcopy(MODEL_CONFIG)
     model_config["input_size"] = [image_size, image_size]
@@ -294,7 +294,19 @@ def objective(trial: optuna.trial.Trial, device, args, train_loader, test_loader
         pruner.init_train()        
 
         # Search Model Architecture -> Model Train and Testing -> Best Model save (*.yaml, *.pth)
-        test_score = train_fn(model_instance.model, args.METRIC, args.CLASSES, num_epochs, train_loader, test_loader, loss_fn, optimizer, scheduler, hyperparams["scheduler"], device)
+        test_score = train_fn(model_instance.model, 
+                              args.METRIC, 
+                              args.CLASSES, 
+                              trial, 
+                              num_epochs, 
+                              train_loader, 
+                              test_loader, 
+                              loss_fn, 
+                              optimizer, 
+                              scheduler, 
+                              hyperparams["scheduler"], 
+                              pruner, device)
+
         
         if test_score is None:
             if PRUNE_TYPE != 1:
