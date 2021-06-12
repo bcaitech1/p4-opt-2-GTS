@@ -1,3 +1,4 @@
+from torchvision import transforms
 from src.model import Model
 from src.loss import *
 from src.utils.torch_utils import *
@@ -6,6 +7,7 @@ from src.utils.common import *
 from src.dataloader import *
 from src.network_prune import *
 from src.trainer import *
+from src.augmentation.auto_augmentation import *
 from typing import Any, Dict, List, Tuple, Union
 import argparse
 import copy
@@ -249,6 +251,7 @@ def objective(trial: optuna.trial.Trial, device, args, train_loader, test_loader
         # optimizer setting
         # Standard : https://github.com/kuangliu/pytorch-cifar
         # TODO : ImageNet, CIFAR100
+        hyperparams = {}
         if data_type == "CIFAR10":
             args.CLASSES = 10
             num_epochs = 200
@@ -264,9 +267,17 @@ def objective(trial: optuna.trial.Trial, device, args, train_loader, test_loader
         elif data_type == "CUSTOM":
             # Hyper parameter Search
             hyperparams = search_hyperparam(trial)
-            print(hyperparams)
             num_epochs = hyperparams["epochs"]
-            
+
+            if args.auto_augment:
+                aug_list = get_augmentation(trial)
+
+                train_loader, test_loader = get_dataset(data_type=args.data_type, 
+                                                    data_root=args.data_root, 
+                                                    image_size=args.image_size, 
+                                                    batch_size=args.batch_size, 
+                                                    transforms=aug_list)
+
             if hyperparams["loss_fn"] == "ce": 
                 loss_fn = nn.CrossEntropyLoss()
             elif hyperparams["loss_fn"] == "smooth":
@@ -330,18 +341,19 @@ def objective(trial: optuna.trial.Trial, device, args, train_loader, test_loader
 
 def main():    
     parser = argparse.ArgumentParser()
-    parser.add_argument("--METRIC", type=str, default="F1", help="TODO") # ACC , F1
-    parser.add_argument("--LIMIT_MACS", type=int, default=100000000, help="TODO")
-    parser.add_argument("--image_size", type=int, default=32, help="TODO")
-    parser.add_argument("--batch_size", type=int, default=128, help="TODO")
-    parser.add_argument("--CLASSES", type=int, default=10, help="TODO")
-    parser.add_argument("--MAX_DEPTH", type=int, default=5, help="TODO")
-    parser.add_argument("--data_type", type=str, default="CIFAR10", help="TODO") # CIFAR10, CIFAR100, IMAGENET, CUSTOM
-    parser.add_argument("--data_root", type=str, default="../", help="TODO")
-    parser.add_argument("--study_name", type=str, default="automl_search", help="TODO")
-    parser.add_argument("--seed", type=int, default=17, help="TODO")
-    parser.add_argument("--trial", type=int, default=10000, help="TODO")
+    parser.add_argument("--METRIC", type=str, default="F1", help="Select Metric [F1, Focal, CE, Smooth]") # ACC , F1
+    parser.add_argument("--LIMIT_MACS", type=int, default=100000000, help="Select Limit macs")
+    parser.add_argument("--image_size", type=int, default=32, help="Select image size")
+    parser.add_argument("--batch_size", type=int, default=128, help="Select batch size")
+    parser.add_argument("--CLASSES", type=int, default=10, help="Number of classes")
+    parser.add_argument("--MAX_DEPTH", type=int, default=5, help="Choice max depth of architecture")
+    parser.add_argument("--data_type", type=str, default="CUSTOM", help="Select data type [CIFAR10, CIFAR100, IMAGENET, CUSTOM]") # CIFAR10, CIFAR100, IMAGENET, CUSTOM
+    parser.add_argument("--data_root", type=str, default="/opt/ml/input/data/", help="TODO")
+    parser.add_argument("--study_name", type=str, default="automl_search", help="")
+    parser.add_argument("--seed", type=int, default=17, help="Select Random Seed")
+    parser.add_argument("--trial", type=int, default=10000, help="Decide number of trial")
     parser.add_argument("--prune_type", type=int , default=0, help="0. None \n1. optuna inner prunner \n2. custom prunner ")
+    parser.add_argument("--auto_augment", type=bool, default=False, help="Decide use auto augmentation [True, False]")
     args = parser.parse_args()
 
     seed_everything(args.seed)
@@ -362,9 +374,9 @@ def main():
         return
     
     if args.data_type=="CUSTOM":
-        train_loader, test_loader = get_dataset(data_type=args.data_type, data_root='../', image_size=args.image_size, batch_size=args.batch_size)
+        train_loader, test_loader = get_dataset(data_type=args.data_type, data_root=args.data_root, image_size=args.image_size, batch_size=args.batch_size)
     else:
-        train_loader, test_loader = get_dataset(data_type=args.data_type, data_root='../', image_size=args.image_size)
+        train_loader, test_loader = get_dataset(data_type=args.data_type, data_root=args.data_root, image_size=args.image_size)
     
     print(f"Start Architecture Search.... (Limit MACs : {args.LIMIT_MACS})")
     # Search Algorithm
