@@ -7,7 +7,7 @@ import torch
 
 def read_yaml(cfg: Union[str, Dict[str, Any]]):
     if not isinstance(cfg, dict):
-        with open(cfg) as f:
+        with open("/opt/ml/github/configs/model/example.yaml") as f: #cfg) as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
     else:
         config = cfg

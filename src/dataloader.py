@@ -1,3 +1,4 @@
+from PIL.Image import NONE
 import torchvision
 import torchvision.transforms as transforms
 import torch
@@ -17,7 +18,7 @@ CIFAR_TRANSFORM_TEST = transforms.Compose([
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.247, 0.243, 0.261)),
 ])
         
-def get_dataset(data_type="CIFAR10", data_root=None, image_size=224, batch_size=128):
+def get_dataset(data_type="CIFAR10", data_root=None, image_size=224, batch_size=128, transforms=None):
     if data_type=="CIFAR10":
         train_dataset = torchvision.datasets.CIFAR10(root=data_root+'/input', train=True, download=True, transform=CIFAR_TRANSFORM_TRAIN)
         train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=128, shuffle=True, num_workers=0)
@@ -32,7 +33,10 @@ def get_dataset(data_type="CIFAR10", data_root=None, image_size=224, batch_size=
         test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False, num_workers=0)
     elif data_type=="CUSTOM":
         # 배포 시 경로 재설정
-        train_dataset = CustomDataset(data_dir=data_root+'/transforms_data/resize128/train', transforms=get_train_transform(data_type, image_size))
+        if transforms == None:
+            train_dataset = CustomDataset(data_dir=data_root+'/transforms_data/resize128/train', transforms=get_train_transform(data_type))
+        else:
+            train_dataset = CustomDataset(data_dir=data_root+'/transforms_data/resize128/train',data_type=data_type, transforms=transforms)
         train_loader=DataLoader(train_dataset,batch_size=batch_size,shuffle=True,num_workers=0)
         
         test_dataset = CustomDataset(data_dir=data_root+'/transforms_data/resize128/val', transforms=get_valid_transform(data_type, image_size))
