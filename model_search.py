@@ -158,7 +158,11 @@ def search_model(trial: optuna.trial.Trial, CLASSES) -> List[Any]:
     m1 = trial.suggest_categorical("m1", ["Conv", "DWConv"])
     m1_args = []
     m1_repeat = 1
-    m1_out_channel = trial.suggest_int("m1/out_channels", low=16, high=24, step=8)
+    
+    if m1=="Conv":
+        m1_out_channel = trial.suggest_int("m1/out_channels", low=16, high=24, step=8)
+    elif m1=="DWConv":
+        m1_out_channel = trial.suggest_int("m1/out_channels", low=15, high=24, step=3)
     
     if MAX_NUM_POOLING==3:
         m1_stride = 1
