@@ -348,8 +348,8 @@ def main():
     parser.add_argument("--CLASSES", type=int, default=10, help="Number of classes")
     parser.add_argument("--MAX_DEPTH", type=int, default=5, help="Choice max depth of architecture")
     parser.add_argument("--data_type", type=str, default="CUSTOM", help="Select data type [CIFAR10, CIFAR100, IMAGENET, CUSTOM]") # CIFAR10, CIFAR100, IMAGENET, CUSTOM
-    parser.add_argument("--data_root", type=str, default="/opt/ml/input/data/", help="TODO")
-    parser.add_argument("--study_name", type=str, default="automl_search", help="")
+    parser.add_argument("--data_root", type=str, default="/opt/ml/input/data/", help="Set data directory path")
+    parser.add_argument("--study_name", type=str, default="automl_search", help="set study name for optuna")
     parser.add_argument("--seed", type=int, default=17, help="Select Random Seed")
     parser.add_argument("--trial", type=int, default=10000, help="Decide number of trial")
     parser.add_argument("--prune_type", type=int , default=0, help="0. None \n1. optuna inner prunner \n2. custom prunner ")
