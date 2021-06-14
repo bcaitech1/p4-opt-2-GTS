@@ -116,7 +116,8 @@ class SwishImplementation(torch.autograd.Function):
 
 class Swish(nn.Module):
     def forward(self, x):
-        return SwishImplementation.apply(x)
+        return x * torch.sigmoid(x)
+        #return SwishImplementation.apply(x)
 
 
 def _round_repeats(repeats, depth_mult):
