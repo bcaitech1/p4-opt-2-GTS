@@ -348,7 +348,7 @@ def objective(trial: optuna.trial.Trial, device, args, train_loader, test_loader
 
 def main():    
     parser = argparse.ArgumentParser()
-    parser.add_argument("--METRIC", type=str, default="F1", help="Select Metric [ACC, F1]") # ACC , F1
+    parser.add_argument("--METRIC", type=str, default="F1", help="Select Metric [F1, ACC]") # ACC , F1
     parser.add_argument("--LIMIT_MACS", type=int, default=100000000, help="Select Limit macs")
     parser.add_argument("--image_size", type=int, default=32, help="Select image size")
     parser.add_argument("--batch_size", type=int, default=128, help="Select batch size")

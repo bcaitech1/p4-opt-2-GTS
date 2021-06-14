@@ -121,6 +121,9 @@ def autopad(
     if isinstance(kernel_size, int):
         kernel_size = [kernel_size]
 
+    if padding == None:
+        return (0, 0)
+
     return padding or [x // 2 for x in kernel_size]
 
 
