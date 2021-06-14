@@ -8,7 +8,7 @@ import torch.nn.init as init
 from torch import nn as nn
 
 from ptflops import get_model_complexity_info
-    
+
 def calc_macs(model, input_shape):
     macs, params = get_model_complexity_info(
         model=model,
