@@ -341,14 +341,14 @@ def objective(trial: optuna.trial.Trial, device, args, train_loader, test_loader
 
 def main():    
     parser = argparse.ArgumentParser()
-    parser.add_argument("--METRIC", type=str, default="F1", help="Select Metric [F1, Focal, CE, Smooth]") # ACC , F1
+    parser.add_argument("--METRIC", type=str, default="F1", help="Select Metric [F1, ACC]") # ACC , F1
     parser.add_argument("--LIMIT_MACS", type=int, default=100000000, help="Select Limit macs")
     parser.add_argument("--image_size", type=int, default=32, help="Select image size")
     parser.add_argument("--batch_size", type=int, default=128, help="Select batch size")
     parser.add_argument("--CLASSES", type=int, default=10, help="Number of classes")
     parser.add_argument("--MAX_DEPTH", type=int, default=5, help="Choice max depth of architecture")
     parser.add_argument("--data_type", type=str, default="CUSTOM", help="Select data type [CIFAR10, CIFAR100, IMAGENET, CUSTOM]") # CIFAR10, CIFAR100, IMAGENET, CUSTOM
-    parser.add_argument("--data_root", type=str, default="/opt/ml/input/data/", help="Set data directory path")
+    parser.add_argument("--data_root", type=str, default="./data/", help="Set data directory path")
     parser.add_argument("--study_name", type=str, default="automl_search", help="set study name for optuna")
     parser.add_argument("--seed", type=int, default=17, help="Select Random Seed")
     parser.add_argument("--trial", type=int, default=10000, help="Decide number of trial")
