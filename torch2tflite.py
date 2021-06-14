@@ -98,10 +98,10 @@ if __name__=="__main__":
     warnings.filterwarnings(action='ignore')
     tf.get_logger().setLevel(3)
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_cfg", type=str, default="/opt/ml/github/configs/model/lastnet.yaml", help="set model config file path")
-    parser.add_argument("--model_path", type=str, default="/opt/ml/github/saved/lastnet_taco.pth", help="set saved model weight file path")
+    parser.add_argument("--model_cfg", type=str, default="./configs/model/lastnet.yaml", help="set model config file path")
+    parser.add_argument("--model_path", type=str, default="./saved/lastnet_taco.pth", help="set saved model weight file path")
 
-    parser.add_argument("--save_path", type=str, default="/opt/ml/github/converted_model", help="set save path for converted model") 
+    parser.add_argument("--save_path", type=str, default="./converted_model", help="set save path for converted model") 
     
     parser.add_argument("--image_size", type=int, default=224, help="set image size")
     parser.add_argument("--model_name", type=str, default="convert_model", help="set converted model name ex) [model_name].pd")
