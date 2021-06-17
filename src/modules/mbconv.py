@@ -24,6 +24,7 @@ class MBConv(nn.Module):
         stride,
         reduction_ratio=4,
         drop_connect_rate=0.0,
+        use_se=False
     ):
         super(MBConv, self).__init__()
         self.drop_connect_rate = drop_connect_rate
@@ -38,24 +39,39 @@ class MBConv(nn.Module):
         # pw
         if in_planes != hidden_dim:
             layers.append(ConvBNReLU(in_planes, hidden_dim, 1))
-
-        layers.extend(
-            [
-                # dw
-                ConvBNReLU(
-                    hidden_dim,
-                    hidden_dim,
-                    kernel_size,
-                    stride=stride,
-                    groups=hidden_dim,
-                ),
-                # se
-                SqueezeExcitation(hidden_dim, reduced_dim),
-                # pw-linear
-                nn.Conv2d(hidden_dim, out_planes, 1, bias=False),
-                nn.BatchNorm2d(out_planes),
-            ]
-        )
+        
+        if use_se:
+            layers.extend(
+                [
+                    # dw
+                    ConvBNReLU(
+                        hidden_dim,
+                        hidden_dim,
+                        kernel_size,
+                        stride=stride,
+                        groups=hidden_dim,
+                    ),
+                    # se
+                    SqueezeExcitation(hidden_dim, reduced_dim),
+                    # pw-linear
+                    nn.Conv2d(hidden_dim, out_planes, 1, bias=False),
+                    nn.BatchNorm2d(out_planes),
+                ])
+        else:
+            layers.extend(
+                [
+                    # dw
+                    ConvBNReLU(
+                        hidden_dim,
+                        hidden_dim,
+                        kernel_size,
+                        stride=stride,
+                        groups=hidden_dim,
+                    ),
+                    # pw-linear
+                    nn.Conv2d(hidden_dim, out_planes, 1, bias=False),
+                    nn.BatchNorm2d(out_planes),
+                ])
         self.conv = nn.Sequential(*layers)
 
     def _drop_connect(self, x):
@@ -166,7 +182,7 @@ class MBConvGenerator(GeneratorAbstract):
         repeat(=n), [c, t, s] // note original notation from paper is [t, c, n, s]
         """
         module = []
-        t, c, s, k = self.args  # c is equivalent as self.out_channel
+        t, c, s, k, se = self.args  # c is equivalent as self.out_channel
         inp, oup = self.in_channel, self.out_channel
         for i in range(repeat):
             stride = s if i == 0 else 1
@@ -177,6 +193,7 @@ class MBConvGenerator(GeneratorAbstract):
                     expand_ratio=t,
                     stride=stride,
                     kernel_size=k,
+                    use_se=se
                 )
             )
             inp = oup
