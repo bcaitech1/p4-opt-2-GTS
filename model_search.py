@@ -117,7 +117,8 @@ def add_module(trial, depth, n_pooling):
         elif m == "MBConv":
             m_c = trial.suggest_int(m_name+"/c_mb", low=16*depth, high=32*depth, step=16)
             m_t = trial.suggest_int(m_name+"/t_mb", low=1, high=4)
-            m_args = [m_t, m_c, m_stride, m_kernel]
+            m_se = trial.suggest_int(m_name+"/se_mb", low=0, high=1, step=1)
+            m_args = [m_t, m_c, m_stride, m_kernel, m_se]
         elif m == "Fire":
             m_s = trial.suggest_int(m_name+"/s_f", low=16*depth, high=32*depth, step=16)
             m_e = trial.suggest_int(m_name+"/e_f", low=m_s*2, high=m_s*4, step=m_s)
