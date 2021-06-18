@@ -12,5 +12,5 @@ backbone: [
     [1, Conv, [1024, 1, 1]], 
     [1, GlobalAvgPool, []],
     [1, Flatten, []], 
-    [1, Linear, [10]]]
-input_size: [224, 224]
+    [1, Linear, [3]]]
+input_size: [128, 128]
