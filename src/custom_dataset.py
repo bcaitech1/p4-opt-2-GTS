@@ -5,8 +5,8 @@ import numpy as np
 from torch.utils.data import Dataset
 from PIL import Image
 # Modify Your Custom Dataset
-# TODO
-label_classes = {'Battery':0, 'Clothing':1, 'Glass':2, 'Metal':3, 'Paper':4, 'Paperpack':5, 'Plastic':6, 'Plasticbag':7, 'Styrofoam':8}
+# Example
+label_classes = {'label1':0, 'label2':1, 'label3':2, 'label4':3}
 
 class CustomDataset(Dataset):
     def __init__(self, data_dir, transforms, data_type="NONE"):

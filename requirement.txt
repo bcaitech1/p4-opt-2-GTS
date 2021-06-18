@@ -1,0 +1,16 @@
+torch==1.7.1
+PyYAML==5.3.1
+albumentations==0.5.2
+tensorflow==2.5.0
+numpy==1.19.5
+argparse==1.1
+torchvision=0.8.2
+scipy==1.4.1
+sklearn==0.24.1
+tensorly==0.6.0
+optuna==2.4.0
+ptflops
+opencv-python
+pillow
+pytorch2keras
+tflite-support-nightly
