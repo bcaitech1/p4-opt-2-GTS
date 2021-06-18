@@ -32,14 +32,13 @@ def get_dataset(data_type="CIFAR10", data_root=None, image_size=224, batch_size=
         test_dataset = torchvision.datasets.CIFAR100(root=data_root+'/input', train=False, download=True, transform=CIFAR_TRANSFORM_TEST)
         test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False, num_workers=0)
     elif data_type=="CUSTOM":
-        # 배포 시 경로 재설정
         if transforms == None:
-            train_dataset = CustomDataset(data_dir=data_root+'/transforms_data/resize128/train', transforms=get_train_transform(data_type))
+            train_dataset = CustomDataset(data_dir=data_root+'/input/train', transforms=get_train_transform(data_type))
         else:
-            train_dataset = CustomDataset(data_dir=data_root+'/transforms_data/resize128/train',data_type=data_type, transforms=transforms)
+            train_dataset = CustomDataset(data_dir=data_root+'/input/train',data_type=data_type, transforms=transforms)
         train_loader=DataLoader(train_dataset,batch_size=batch_size,shuffle=True,num_workers=0)
         
-        test_dataset = CustomDataset(data_dir=data_root+'/transforms_data/resize128/val', transforms=get_valid_transform(data_type, image_size))
+        test_dataset = CustomDataset(data_dir=data_root+'/input/val', transforms=get_valid_transform(data_type, image_size))
         test_loader=DataLoader(test_dataset,batch_size=batch_size,shuffle=False,num_workers=0)
     return train_loader, test_loader
     
