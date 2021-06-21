@@ -56,7 +56,7 @@ NAS를 통해 경량화 모델을 찾을 수 있습니다.
 |batch_size|dataloader의 배치사이즈를 지정해줍니다.|   
 |CLASSES|분류하고자하는 데이터의 클래스 수를 지정합니다.|   
 |MAX_DEPTH|찾고자하는 모델의 최대 깊이를 지정해주세요.|   
-|data_type|데이터 유형을 지정해줍니다. [CIFAR10, IMAGENET, CUSTOM]|    
+|data_type|데이터 유형을 지정해줍니다. [CIFAR10, CIFAR100, CUSTOM]|    
 |data_root|데이터가 저장된 디렉터리 경로를 지정합니다.|   
 |Trial|목표 아키텍쳐를 찾기 위해 몇번의 Trial을 할 것인지 지정합니다.|  
 |prun_type|아키텍쳐를 찾을 때 어떤식으로 모델을 선별하여 가지고 올것인지 정해줍니다. [0.사용안함, 1.optuna에 내장된 pruner를 사용, 2. custom]|   
