@@ -68,7 +68,7 @@ NAS를 통해 찾은 모델을 좀 더 가볍게 해주기 위해 decomposition�
 
 ### 3. torch2tflite.py 
 
-Pytorch모델을 다양한 플랫폼에서 서비스 하기위해 여러 프랫폼으로 변환해주는 작업을 해줍니다.   
+Pytorch모델을 다양한 플랫폼에서 서비스 하기위해 여러 랫폼으로 변환해주는 작업을 해줍니다.   
 ![convert_model](https://user-images.githubusercontent.com/68745983/122677005-595ab980-d21b-11eb-820b-a76eb50f9af3.PNG)
 
 ## Project with this platform  
